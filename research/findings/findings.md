@@ -25,6 +25,8 @@ Preliminary findings from the transformer ablation study. These are not final �
 | LayerNorm + No Scaling | 801,216 | 220.07 | +2.1% | `plots/layernorm_no_scaling.png` |
 | No Block Norm | 798,720 | 253.49 | +17.6% | `plots/no_block_norm.png` |
 | Post-Norm | 799,968 | 254.47 | +18.1% | `plots/post_norm.png` |
+| Learned Pos | 831,488 | 234.48 | +8.8% | `plots/learned_pos.png` |
+| ALiBi | 799,968 | 219.63 | +1.9% | `plots/alibi.png` |
 
 ## Key Findings So Far
 
@@ -91,6 +93,13 @@ Removing either alone accounts for ~90% of the total impact. Block norms prevent
 
 ### 17. Post-norm completely fails with RMSNorm
 Post-norm (norm after residual) gives PPL 254.47 — as bad as no normalization at all. The norm sits on the main gradient path, creating a bottleneck. The residual adds raw (unnormed) x to sublayer output, and RMSNorm can't mean-center the combined signal. Pre-norm avoids both issues: residual bypasses norm, sublayer receives normalized input. This validates why all modern transformers use pre-norm.
+
+### 18. RoPE dominates all positional alternatives
+Positional encoding hierarchy: **RoPE (+0%) > ALiBi (+1.9%) > No pos (+4.5%) > Learned pos (+8.8%)**.
+- RoPE: 0 params, multiplicative rotation — best precision
+- ALiBi: 0 params, additive linear bias — best alternative, great extrapolation
+- No pos: model recovers some positional info from causal mask alone
+- Learned pos: +31K params, worse than no pos — can't train embeddings with limited data
 
 ## Caveats
 - Small corpus (9.6KB) — patterns may be too simple to stress-test components

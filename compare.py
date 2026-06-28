@@ -78,6 +78,8 @@ def compare_table():
         "layernorm_no_scaling": {"params": 801_216, "ppl": 220.07, "note": "LayerNorm + no scaling (combo)"},
         "no_block_norm":   {"params": 798_720,  "ppl": 253.49, "note": "Block norms removed (final kept)"},
         "post_norm":       {"params": 799_968,  "ppl": 254.47, "note": "Post-norm (was pre-norm)"},
+        "learned_pos":     {"params": 831_488,  "ppl": 234.48, "note": "Learned pos embeddings (was RoPE)"},
+        "alibi":           {"params": 799_968,  "ppl": 219.63, "note": "ALiBi positional bias (was RoPE)"},
     }
 
     baseline_ppl = experiments["baseline"]["ppl"]
