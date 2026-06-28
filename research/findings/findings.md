@@ -23,6 +23,8 @@ Preliminary findings from the transformer ablation study. These are not final �
 | Biases | 814,464 | 233.07 | +8.1% | `plots/biases.png` |
 | No Final Norm | 798,720 | 251.15 | +16.5% | `plots/no_final_norm.png` |
 | LayerNorm + No Scaling | 801,216 | 220.07 | +2.1% | `plots/layernorm_no_scaling.png` |
+| No Block Norm | 798,720 | 253.49 | +17.6% | `plots/no_block_norm.png` |
+| Post-Norm | 799,968 | 254.47 | +18.1% | `plots/post_norm.png` |
 
 ## Key Findings So Far
 
@@ -79,8 +81,16 @@ LayerNorm (with mean-centering + bias) improves PPL by 1.1% over RMSNorm for onl
 ### 15. Biases on linear layers hurt — redundant with normalization
 Adding biases to all linear layers costs +8.1% PPL despite +14K params. RMSNorm already handles per-dimension shifting; linear biases create redundant degrees of freedom that dilute optimization signal. This validates the bias-free design of modern architectures (LLaMA, Mistral).
 
-### 16. Final norm is critical — not redundant with block norms
-Removing only the final norm costs +16.5% PPL (PPL 251, near random), almost as bad as removing all norms (+18.3%). Block norms stabilize intermediate layers, but the output projection needs normalized inputs. Without the final norm, raw block outputs produce extreme logits that saturate softmax. The final norm serves a distinct purpose at the output boundary.
+### 16. Both block norms and final norm are critical — complementary roles
+Full normalization picture:
+- No norms at all: +18.3% PPL (total failure)
+- No final norm only: +16.5% (output projection breaks)
+- No block norms only: +17.6% (activation explosion through layers)
+
+Removing either alone accounts for ~90% of the total impact. Block norms prevent intermediate activation explosion; final norm prepares output for the weight-tied projection. They're complementary, not redundant — the model needs both.
+
+### 17. Post-norm completely fails with RMSNorm
+Post-norm (norm after residual) gives PPL 254.47 — as bad as no normalization at all. The norm sits on the main gradient path, creating a bottleneck. The residual adds raw (unnormed) x to sublayer output, and RMSNorm can't mean-center the combined signal. Pre-norm avoids both issues: residual bypasses norm, sublayer receives normalized input. This validates why all modern transformers use pre-norm.
 
 ## Caveats
 - Small corpus (9.6KB) — patterns may be too simple to stress-test components
@@ -89,15 +99,43 @@ Removing only the final norm costs +16.5% PPL (PPL 251, near random), almost as 
 - No eval split — all numbers are training loss, not generalization
 
 ## Next Questions
+
+### Scale & Data
 - Does the FFN matter more on WikiText-2 (larger, more complex)?
 - Does RoPE matter more at seq_len=256 or 512?
 - Do residuals matter more with more layers (12, 24)?
 - Does GELU beat ReLU at larger scale or longer training?
 - Does weight tying matter less with more training data?
-- What about pre-norm vs post-norm?
-- What about smaller/larger FFN expansion ratio (d_ff/d_model)?
-- Does LayerNorm + no scaling stack better than RMSNorm + no scaling?
-- Combining best findings: LayerNorm + no scaling — does it stack?
-- What about 2-head or 3-head vs 6-head — is there a sweet spot?
-- Does removing final norm only (keeping block norms) matter?
-- What about separate Q, K, V projections vs fused QKV?
+- Does attention scaling become necessary at larger head_dim (32, 64)?
+
+### Add
+- Add dropout (residual, attention, embedding) — does regularization help at this scale?
+- Add learnable positional embeddings instead of RoPE
+- Add a separate embedding for output (not tied, but initialized from token embedding)
+- Add gradient accumulation to simulate larger batch sizes
+- Add label smoothing in cross-entropy loss
+
+### Change
+- Change FFN expansion ratio: d_ff=96 (1x), 192 (2x), 960 (10x) — sweet spot?
+- Change n_heads: 2, 3, 4, 8, 12 — is 6 optimal or is there a better head count?
+- Change d_model: 64, 128, 192 — does width matter more than depth?
+- Change n_layers: 3, 12 — depth vs width trade-off at fixed param budget
+- Change learning rate: 1e-4, 1e-3 — is 3e-4 optimal?
+- Change warmup steps: 0, 200, 500 — does warmup matter at 2000 steps?
+- Change weight decay: 0, 0.01, 0.3 — does regularization help?
+
+### Swap
+- Swap fused QKV → separate Q, K, V projections — does fusion hurt expressivity?
+- Swap RoPE → ALiBi (attention with linear biases) — better extrapolation?
+- Swap AdamW → SGD with momentum — does the optimizer matter at this scale?
+- Swap cosine LR → linear decay or constant LR
+- Swap byte-level tokenizer → BPE tokenizer — does token quality matter?
+- Swap cross-entropy → focal loss — does class imbalance matter at byte level?
+
+### Remove
+- Remove RoPE and add learned positional embeddings — which is better?
+- Remove residual connection on FFN only (keep on attention) — which residual matters more?
+- Remove residual connection on attention only (keep on FFN)
+- Remove warmup — go straight to peak LR
+- Remove weight decay entirely
+- Remove gradient clipping — does it matter at this scale?

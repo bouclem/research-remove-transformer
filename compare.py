@@ -76,6 +76,8 @@ def compare_table():
         "biases":          {"params": 814_464,  "ppl": 233.07, "note": "Added biases to linear layers"},
         "no_final_norm":   {"params": 798_720,  "ppl": 251.15, "note": "Final norm removed only"},
         "layernorm_no_scaling": {"params": 801_216, "ppl": 220.07, "note": "LayerNorm + no scaling (combo)"},
+        "no_block_norm":   {"params": 798_720,  "ppl": 253.49, "note": "Block norms removed (final kept)"},
+        "post_norm":       {"params": 799_968,  "ppl": 254.47, "note": "Post-norm (was pre-norm)"},
     }
 
     baseline_ppl = experiments["baseline"]["ppl"]

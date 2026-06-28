@@ -111,13 +111,11 @@ class CausalSelfAttention(nn.Module):
         k = apply_rope(k, self.rope_cos, self.rope_sin)
 
         # Scaled dot-product attention with causal mask
-        # ABLATION: LayerNorm + no scaling combo — uncomment SDPA to restore
-        # Manual attention without 1/sqrt(d) scaling:
-        scores = q @ k.transpose(-2, -1)  # (B, n_heads, T, T) — no scaling
-        causal_mask = torch.tril(torch.ones(T, T, device=x.device, dtype=torch.bool))
-        scores = scores.masked_fill(~causal_mask, float('-inf'))
-        attn = F.softmax(scores, dim=-1) @ v
-        # attn = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        # Use PyTorch's built-in SDPA for efficiency
+        attn = F.scaled_dot_product_attention(
+            q, k, v,
+            is_causal=True,
+        )
 
         # Reshape back to (B, T, C)
         attn = attn.transpose(1, 2).contiguous().view(B, T, C)
@@ -145,10 +143,9 @@ class TransformerBlock(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, d_ff: int, max_seq_len: int):
         super().__init__()
-        # ABLATION: LayerNorm + no scaling combo — change back to RMSNorm and SDPA to restore
-        self.norm1 = nn.LayerNorm(d_model)
+        self.norm1 = RMSNorm(d_model)
         self.attn = CausalSelfAttention(d_model, n_heads, max_seq_len)
-        self.norm2 = nn.LayerNorm(d_model)
+        self.norm2 = RMSNorm(d_model)
         self.ffn = FeedForward(d_model, d_ff)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -203,8 +200,7 @@ class TransformerLM(nn.Module):
         ])
 
         # Final norm
-        # ABLATION: LayerNorm + no scaling combo — change back to RMSNorm to restore
-        self.norm_f = nn.LayerNorm(config.d_model)
+        self.norm_f = RMSNorm(config.d_model)
 
         # Weight tying: output projection shares embedding weights
         # No separate lm_head — we use token_embedding.weight for projection
@@ -216,7 +212,7 @@ class TransformerLM(nn.Module):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
-        elif isinstance(module, (RMSNorm, nn.LayerNorm)):
+        elif isinstance(module, RMSNorm):
             nn.init.ones_(module.weight)
 
     def forward(self, idx: torch.Tensor, targets: torch.Tensor = None):
