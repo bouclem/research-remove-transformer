@@ -93,7 +93,6 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(d_model, d_model, bias=False)
 
         # Precompute RoPE cache (not a parameter)
-        # ABLATION A2: RoPE removed — uncomment to restore
         cos, sin = precompute_rope_cache(self.head_dim, max_seq_len)
         self.register_buffer("rope_cos", cos, persistent=False)
         self.register_buffer("rope_sin", sin, persistent=False)
@@ -145,9 +144,10 @@ class TransformerBlock(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, d_ff: int, max_seq_len: int):
         super().__init__()
-        self.norm1 = RMSNorm(d_model)
+        # ABLATION: LayerNorm instead of RMSNorm — change back to RMSNorm to restore
+        self.norm1 = nn.LayerNorm(d_model)
         self.attn = CausalSelfAttention(d_model, n_heads, max_seq_len)
-        self.norm2 = RMSNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
         self.ffn = FeedForward(d_model, d_ff)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -202,7 +202,8 @@ class TransformerLM(nn.Module):
         ])
 
         # Final norm
-        self.norm_f = RMSNorm(config.d_model)
+        # ABLATION: LayerNorm instead of RMSNorm — change back to RMSNorm to restore
+        self.norm_f = nn.LayerNorm(config.d_model)
 
         # Weight tying: output projection shares embedding weights
         # No separate lm_head — we use token_embedding.weight for projection
@@ -214,7 +215,7 @@ class TransformerLM(nn.Module):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
-        elif isinstance(module, RMSNorm):
+        elif isinstance(module, (RMSNorm, nn.LayerNorm)):
             nn.init.ones_(module.weight)
 
     def forward(self, idx: torch.Tensor, targets: torch.Tensor = None):

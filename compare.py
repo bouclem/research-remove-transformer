@@ -67,6 +67,12 @@ def compare_table():
         "no_residual":    {"params": 799_968,  "ppl": 217.33, "note": "Residual connections removed"},
         "relu":           {"params": 799_968,  "ppl": 213.25, "note": "GELU -> ReLU"},
         "swiglu":         {"params": 1_076_448, "ppl": 222.11, "note": "GELU -> SwiGLU"},
+        "no_weight_tying": {"params": 824_544,  "ppl": 230.47, "note": "Weight tying removed"},
+        "no_scaling":      {"params": 799_968,  "ppl": 212.36, "note": "Attention scaling removed"},
+        "relu_no_scaling": {"params": 799_968,  "ppl": 222.85, "note": "ReLU + no scaling (combo)"},
+        "single_head":     {"params": 799_968,  "ppl": 223.61, "note": "Single-head attention (was 6)"},
+        "no_attn_proj":    {"params": 744_192,  "ppl": 241.46, "note": "Attention output projection removed"},
+        "layernorm":       {"params": 801_216,  "ppl": 213.09, "note": "RMSNorm -> LayerNorm"},
     }
 
     baseline_ppl = experiments["baseline"]["ppl"]

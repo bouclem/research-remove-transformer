@@ -14,6 +14,12 @@ Preliminary findings from the transformer ablation study. These are not final �
 | No Residual | 799,968 | 217.33 | +0.8% | `plots/no_residual.png` |
 | ReLU (vs GELU) | 799,968 | 213.25 | -1.1% (better) | `plots/relu.png` |
 | SwiGLU (vs GELU) | 1,076,448 | 222.11 | +3.0% | `plots/swiglu.png` |
+| No Weight Tying | 824,544 | 230.47 | +6.9% | `plots/no_weight_tying.png` |
+| No Scaling | 799,968 | 212.36 | -1.5% (better) | `plots/no_scaling.png` |
+| ReLU + No Scaling | 799,968 | 222.85 | +3.4% | `plots/relu_no_scaling.png` |
+| Single Head | 799,968 | 223.61 | +3.8% | `plots/single_head.png` |
+| No Attn Proj | 744,192 | 241.46 | +12.0% | `plots/no_attn_proj.png` |
+| LayerNorm | 801,216 | 213.09 | -1.1% (better) | `plots/layernorm.png` |
 
 ## Key Findings So Far
 
@@ -44,6 +50,24 @@ At 6 layers, removing residuals costs only +0.8% PPL. The signal flows fine thro
 ### 8. Simpler activations win at small scale
 Activation hierarchy: **ReLU > GELU > SwiGLU**. ReLU improves PPL by 1.1% over GELU and is 7% faster. SwiGLU is 3% worse than GELU despite 35% more params and is slower. GELU's smooth gradient and SwiGLU's gating mechanism are designed for large-scale optimization — at 800K params, they're overhead without benefit.
 
+### 9. Weight tying is a free lunch
+Removing weight tying costs +6.9% PPL while *adding* 3% more params. The separate `lm_head` must learn the token space from scratch — with limited data it can't. Weight tying saves params AND improves quality by enforcing input/output space consistency. One of the best design choices in the baseline.
+
+### 10. Attention scaling hurts at small head_dim
+Removing `1/sqrt(head_dim)` improves PPL by 1.5%. With head_dim=16, the scaling factor is 0.25 — too aggressive, dampening logits into overly uniform attention. Without it, sharper softmax distributions help the model make more decisive attention decisions. This likely reverses at head_dim=64+ where unscaled dot products would saturate softmax.
+
+### 11. Improvements don't stack — sharpness trap
+ReLU alone: -1.1%. No-scaling alone: -1.5%. Combined: +3.4% (worse than baseline). Both create "sharper" signal processing (harder activation thresholds + more peaked softmax). Individually this helps, but combined the sharpness compounds — ReLU's sparse outputs feed into unscaled QK products, causing softmax saturation and gradient collapse. Improvements on the same axis (activation sharpness) overshoot when stacked.
+
+### 12. Multi-head attention diversity matters
+Single-head (head_dim=96) costs +3.8% PPL vs 6-head (head_dim=16), same params. Attention pattern diversity beats per-head dimensionality — 6 independent attention distributions capture richer relationships than 1 wide one, even at d_model=96.
+
+### 13. Attention output projection is critical for head mixing
+Removing the output `proj` layer costs +12% PPL (second-worst after no-norm) while saving only 7% params. Without it, multi-head outputs are concatenated but never mixed — heads operate in isolation and can't combine findings. The projection is one of the best param-to-impact ratios: 55K params for 12% quality.
+
+### 14. LayerNorm slightly beats RMSNorm
+LayerNorm (with mean-centering + bias) improves PPL by 1.1% over RMSNorm for only +1,248 params. Also 15% faster due to fused C++ kernel vs custom Python RMSNorm. The mean-subtraction helps calibrate representations per-dimension.
+
 ## Caveats
 - Small corpus (9.6KB) — patterns may be too simple to stress-test components
 - Short sequences (128) — positional encoding may matter more at longer lengths
@@ -55,5 +79,10 @@ Activation hierarchy: **ReLU > GELU > SwiGLU**. ReLU improves PPL by 1.1% over G
 - Does RoPE matter more at seq_len=256 or 512?
 - Do residuals matter more with more layers (12, 24)?
 - Does GELU beat ReLU at larger scale or longer training?
-- What about removing weight tying?
-- What about SwiGLU?
+- Does weight tying matter less with more training data?
+- What about removing attention scaling (1/sqrt(d))?
+- What about single-head vs multi-head attention?
+- What about adding biases to linear layers?
+- What about pre-norm vs post-norm?
+- What about smaller/larger FFN expansion ratio (d_ff/d_model)?
+- Combining best findings: ReLU + no residuals — does it stack?
