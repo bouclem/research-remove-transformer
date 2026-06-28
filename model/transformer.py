@@ -109,9 +109,8 @@ class CausalSelfAttention(nn.Module):
         v = v.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
 
         # Apply RoPE to Q and K
-        # ABLATION A2: RoPE removed — uncomment to restore
-        # q = apply_rope(q, self.rope_cos, self.rope_sin)
-        # k = apply_rope(k, self.rope_cos, self.rope_sin)
+        q = apply_rope(q, self.rope_cos, self.rope_sin)
+        k = apply_rope(k, self.rope_cos, self.rope_sin)
 
         # Scaled dot-product attention with causal mask
         # Use PyTorch's built-in SDPA for efficiency
