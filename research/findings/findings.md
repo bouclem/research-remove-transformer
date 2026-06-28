@@ -12,6 +12,8 @@ Preliminary findings from the transformer ablation study. These are not final �
 | No Norm | 798,720 | 254.93 | +18.3% | `plots/no_norm.png` |
 | No FFN + No RoPE | 246,432 | 235.43 | +9.2% | `plots/no_ffn_no_rope.png` |
 | No Residual | 799,968 | 217.33 | +0.8% | `plots/no_residual.png` |
+| ReLU (vs GELU) | 799,968 | 213.25 | -1.1% (better) | `plots/relu.png` |
+| SwiGLU (vs GELU) | 1,076,448 | 222.11 | +3.0% | `plots/swiglu.png` |
 
 ## Key Findings So Far
 
@@ -39,6 +41,9 @@ Removing FFN alone: +8.9% PPL. Removing RoPE alone: +4.5% PPL. Removing both: +9
 ### 7. Residual connections matter less at shallow depth
 At 6 layers, removing residuals costs only +0.8% PPL. The signal flows fine through sequential attention+FFN. However, training is noisier (larger loss swings), suggesting residuals help optimization stability even when they don't affect final quality. This likely reverses at greater depth (24+ layers).
 
+### 8. Simpler activations win at small scale
+Activation hierarchy: **ReLU > GELU > SwiGLU**. ReLU improves PPL by 1.1% over GELU and is 7% faster. SwiGLU is 3% worse than GELU despite 35% more params and is slower. GELU's smooth gradient and SwiGLU's gating mechanism are designed for large-scale optimization — at 800K params, they're overhead without benefit.
+
 ## Caveats
 - Small corpus (9.6KB) — patterns may be too simple to stress-test components
 - Short sequences (128) — positional encoding may matter more at longer lengths
@@ -49,5 +54,6 @@ At 6 layers, removing residuals costs only +0.8% PPL. The signal flows fine thro
 - Does the FFN matter more on WikiText-2 (larger, more complex)?
 - Does RoPE matter more at seq_len=256 or 512?
 - Do residuals matter more with more layers (12, 24)?
-- What about swapping GELU → ReLU in the FFN?
+- Does GELU beat ReLU at larger scale or longer training?
 - What about removing weight tying?
+- What about SwiGLU?
