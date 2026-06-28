@@ -20,6 +20,9 @@ Preliminary findings from the transformer ablation study. These are not final �
 | Single Head | 799,968 | 223.61 | +3.8% | `plots/single_head.png` |
 | No Attn Proj | 744,192 | 241.46 | +12.0% | `plots/no_attn_proj.png` |
 | LayerNorm | 801,216 | 213.09 | -1.1% (better) | `plots/layernorm.png` |
+| Biases | 814,464 | 233.07 | +8.1% | `plots/biases.png` |
+| No Final Norm | 798,720 | 251.15 | +16.5% | `plots/no_final_norm.png` |
+| LayerNorm + No Scaling | 801,216 | 220.07 | +2.1% | `plots/layernorm_no_scaling.png` |
 
 ## Key Findings So Far
 
@@ -56,8 +59,13 @@ Removing weight tying costs +6.9% PPL while *adding* 3% more params. The separat
 ### 10. Attention scaling hurts at small head_dim
 Removing `1/sqrt(head_dim)` improves PPL by 1.5%. With head_dim=16, the scaling factor is 0.25 — too aggressive, dampening logits into overly uniform attention. Without it, sharper softmax distributions help the model make more decisive attention decisions. This likely reverses at head_dim=64+ where unscaled dot products would saturate softmax.
 
-### 11. Improvements don't stack — sharpness trap
-ReLU alone: -1.1%. No-scaling alone: -1.5%. Combined: +3.4% (worse than baseline). Both create "sharper" signal processing (harder activation thresholds + more peaked softmax). Individually this helps, but combined the sharpness compounds — ReLU's sparse outputs feed into unscaled QK products, causing softmax saturation and gradient collapse. Improvements on the same axis (activation sharpness) overshoot when stacked.
+### 11. Improvements don't stack — sharpness trap (confirmed 3x)
+Three combos tested, all non-additive:
+- ReLU + no scaling: expected -2.6%, got +3.4% (6.0% swing)
+- LayerNorm + no scaling: expected -2.6%, got +2.1% (4.7% swing)
+- (No FFN + no RoPE was also non-additive but both were removals)
+
+Both "improvement" combos share the same root cause: individually they sharpen signal processing, but combined the sharpness compounds into softmax saturation. The transformer is a tightly coupled system — local optimizations can create global regressions when they operate on the same axis.
 
 ### 12. Multi-head attention diversity matters
 Single-head (head_dim=96) costs +3.8% PPL vs 6-head (head_dim=16), same params. Attention pattern diversity beats per-head dimensionality — 6 independent attention distributions capture richer relationships than 1 wide one, even at d_model=96.
@@ -67,6 +75,12 @@ Removing the output `proj` layer costs +12% PPL (second-worst after no-norm) whi
 
 ### 14. LayerNorm slightly beats RMSNorm
 LayerNorm (with mean-centering + bias) improves PPL by 1.1% over RMSNorm for only +1,248 params. Also 15% faster due to fused C++ kernel vs custom Python RMSNorm. The mean-subtraction helps calibrate representations per-dimension.
+
+### 15. Biases on linear layers hurt — redundant with normalization
+Adding biases to all linear layers costs +8.1% PPL despite +14K params. RMSNorm already handles per-dimension shifting; linear biases create redundant degrees of freedom that dilute optimization signal. This validates the bias-free design of modern architectures (LLaMA, Mistral).
+
+### 16. Final norm is critical — not redundant with block norms
+Removing only the final norm costs +16.5% PPL (PPL 251, near random), almost as bad as removing all norms (+18.3%). Block norms stabilize intermediate layers, but the output projection needs normalized inputs. Without the final norm, raw block outputs produce extreme logits that saturate softmax. The final norm serves a distinct purpose at the output boundary.
 
 ## Caveats
 - Small corpus (9.6KB) — patterns may be too simple to stress-test components
@@ -80,9 +94,10 @@ LayerNorm (with mean-centering + bias) improves PPL by 1.1% over RMSNorm for onl
 - Do residuals matter more with more layers (12, 24)?
 - Does GELU beat ReLU at larger scale or longer training?
 - Does weight tying matter less with more training data?
-- What about removing attention scaling (1/sqrt(d))?
-- What about single-head vs multi-head attention?
-- What about adding biases to linear layers?
 - What about pre-norm vs post-norm?
 - What about smaller/larger FFN expansion ratio (d_ff/d_model)?
-- Combining best findings: ReLU + no residuals — does it stack?
+- Does LayerNorm + no scaling stack better than RMSNorm + no scaling?
+- Combining best findings: LayerNorm + no scaling — does it stack?
+- What about 2-head or 3-head vs 6-head — is there a sweet spot?
+- Does removing final norm only (keeping block norms) matter?
+- What about separate Q, K, V projections vs fused QKV?

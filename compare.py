@@ -73,6 +73,9 @@ def compare_table():
         "single_head":     {"params": 799_968,  "ppl": 223.61, "note": "Single-head attention (was 6)"},
         "no_attn_proj":    {"params": 744_192,  "ppl": 241.46, "note": "Attention output projection removed"},
         "layernorm":       {"params": 801_216,  "ppl": 213.09, "note": "RMSNorm -> LayerNorm"},
+        "biases":          {"params": 814_464,  "ppl": 233.07, "note": "Added biases to linear layers"},
+        "no_final_norm":   {"params": 798_720,  "ppl": 251.15, "note": "Final norm removed only"},
+        "layernorm_no_scaling": {"params": 801_216, "ppl": 220.07, "note": "LayerNorm + no scaling (combo)"},
     }
 
     baseline_ppl = experiments["baseline"]["ppl"]
