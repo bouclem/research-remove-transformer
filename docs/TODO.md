@@ -12,11 +12,11 @@ What do transformers need and don't need, to be more optimized but still basical
 
 ## Ablation Experiments
 - [ ] **A1: Normalization** — RMSNorm vs LayerNorm vs no norm
-- [ ] **A2: Positional encoding** — RoPE vs learned PE vs no PE
+- [x] **A2: Positional encoding removed** — RoPE commented out, 0 param change, PPL 215→225 (+4.5%). Causal mask provides implicit position info. RoPE helpful but not critical.
 - [ ] **A3: Weight tying** — tied vs untied embedding/output
 - [ ] **A4: Activation** — GELU vs ReLU vs SwiGLU
 - [ ] **A5: Norm placement** — pre-norm vs post-norm
-- [ ] **A6: FFN ratio** — d_ff/d_model = 3x vs 4x vs 2x
+- [x] **A-FFN: Feed-forward removed** — 799K→246K params (-69%), PPL 215→235 (+9%). FFN not strictly necessary, attention alone learns structure.
 - [ ] **A7: Head config** — fewer wide heads vs many narrow heads
 - [ ] **A8: Bias terms** — no bias vs with bias on linear layers
 - [ ] **A9: Attention scaling** — 1/sqrt(d) vs 1/d vs learned scale

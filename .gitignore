@@ -22,11 +22,13 @@ env/
 
 # Training artifacts
 checkpoints/
+checkpoints*/
+checkpoints_*/
 *.pt
 *.pth
 
-# Plots
-plots/*.png
+# Plots — keep these, they're research artifacts
+# (no ignore rule)
 
 # HuggingFace cache
 .cache/

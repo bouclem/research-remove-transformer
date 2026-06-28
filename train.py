@@ -37,6 +37,7 @@ def train(
     eval_steps: int = 50,
     plot_dir: str = "plots",
     custom_path: str = None,
+    experiment_name: str = "baseline",
 ):
     """Full step-based training pipeline."""
 
@@ -189,13 +190,14 @@ def train(
     print(f"Best checkpoint: {os.path.join(save_dir, 'best.pt')}")
 
     # ── Plot training curves ──
-    plot_title = f"800K Transformer — {dataset_name} — {max_steps} steps"
+    plot_title = f"800K Transformer — {experiment_name} — {dataset_name} — {max_steps} steps"
     plot_training_curves(
         step_losses=step_losses,
         eval_losses=eval_losses if eval_losses else None,
         eval_steps=eval_step_marks if eval_step_marks else None,
         save_dir=plot_dir,
         title=plot_title,
+        experiment_name=experiment_name,
     )
 
 
@@ -221,6 +223,7 @@ if __name__ == "__main__":
     parser.add_argument("--eval_steps", type=int, default=50)
     parser.add_argument("--plot_dir", type=str, default="plots")
     parser.add_argument("--custom_path", type=str, default=None, help="Override path for custom dataset")
+    parser.add_argument("--experiment_name", type=str, default="baseline", help="Name for plot filename")
     args = parser.parse_args()
 
     train(
@@ -240,4 +243,5 @@ if __name__ == "__main__":
         eval_steps=args.eval_steps,
         plot_dir=args.plot_dir,
         custom_path=args.custom_path,
+        experiment_name=args.experiment_name,
     )

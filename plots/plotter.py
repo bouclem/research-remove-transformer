@@ -17,16 +17,18 @@ def plot_training_curves(
     eval_steps: list[int] = None,
     save_dir: str = "plots",
     title: str = "Training Curves",
+    experiment_name: str = "baseline",
 ) -> str:
     """
     Plot training loss (and optional eval loss) curves.
 
     Args:
-        step_losses:  list of training loss values (logged every N steps)
-        eval_losses:  list of eval loss values (optional)
-        eval_steps:   list of step numbers where eval was done (optional)
-        save_dir:     directory to save the plot
-        title:        plot title
+        step_losses:     list of training loss values (logged every N steps)
+        eval_losses:     list of eval loss values (optional)
+        eval_steps:      list of step numbers where eval was done (optional)
+        save_dir:        directory to save the plot (default: plots/)
+        title:           plot title
+        experiment_name: name used in the output filename (e.g. "no_ffn" -> no_ffn_loss.png)
     Returns:
         Path to saved plot file
     """
@@ -64,7 +66,7 @@ def plot_training_curves(
     fig.suptitle(title, fontsize=14, fontweight="bold")
     plt.tight_layout()
 
-    save_path = os.path.join(save_dir, "training_curves.png")
+    save_path = os.path.join(save_dir, f"{experiment_name}.png")
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 

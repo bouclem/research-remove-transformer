@@ -93,6 +93,7 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(d_model, d_model, bias=False)
 
         # Precompute RoPE cache (not a parameter)
+        # ABLATION A2: RoPE removed — uncomment to restore
         cos, sin = precompute_rope_cache(self.head_dim, max_seq_len)
         self.register_buffer("rope_cos", cos, persistent=False)
         self.register_buffer("rope_sin", sin, persistent=False)
@@ -108,8 +109,9 @@ class CausalSelfAttention(nn.Module):
         v = v.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
 
         # Apply RoPE to Q and K
-        q = apply_rope(q, self.rope_cos, self.rope_sin)
-        k = apply_rope(k, self.rope_cos, self.rope_sin)
+        # ABLATION A2: RoPE removed — uncomment to restore
+        # q = apply_rope(q, self.rope_cos, self.rope_sin)
+        # k = apply_rope(k, self.rope_cos, self.rope_sin)
 
         # Scaled dot-product attention with causal mask
         # Use PyTorch's built-in SDPA for efficiency
